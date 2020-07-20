@@ -2,6 +2,48 @@ import React from 'react';
 import mapboxgl from 'mapbox-gl';
 import './Map.css';
 import data from './data.json'
+import real_data from './real_data.json'
+
+let addressArray = []
+real_data.forEach((item) => {
+  addressArray.push(item.address);
+});
+
+console.log(addressArray);
+
+let coordinateArray = [];
+
+addressArray.forEach((address) => {
+  var request = new XMLHttpRequest();
+  request.onreadystatechange = function () {
+    if (this.readyState == 4 && this.status == 200) {
+      var data = JSON.parse(request.responseText);
+      if (data[0] == undefined) {
+        console.error(`Geogratis failed to find coordinates for the following address: ${data[0]}`);
+      }
+      coordinateArray.push(data[0].geometry.coordinates);
+    }
+  };
+  request.open("GET", "https://www.geogratis.gc.ca/services/geolocation/en/locate?q=" + address, true);
+  request.send();
+});
+
+console.log(coordinateArray);
+
+// var request = new XMLHttpRequest();
+// request.onreadystatechange = function () {
+//   if (this.readyState == 4 && this.status == 200) {
+//     var data = JSON.parse(request.responseText);
+//     if (data[0] == undefined) {
+//     }
+//     var coordinates = data[0].geometry.coordinates;
+//     console.log(coordinates);
+//   }
+// };
+// request.open("GET", "https://www.geogratis.gc.ca/services/geolocation/en/locate?q=" + real_data[0].address, true);
+// request.send();
+
+
 
 export default class Map extends React.Component {
   constructor(props) {
