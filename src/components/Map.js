@@ -20,116 +20,58 @@ export default class Map extends React.Component {
       lat: 54,
       zoom: 3.8,
       coordinates: [],
-      geoJSON: null
-    };
+      geoJSONFeatures: [],
+    }
   }
 
-  getCoordinates = () => {
+  getCoordinates = async () => {
     let coordinateArray = [];
-    try {
-      addressArray.forEach((address) => {
-        var request = new XMLHttpRequest();
-        request.onreadystatechange = function () {
-          if (this.readyState === 4 && this.status === 200) {
-            var data = JSON.parse(request.responseText);
-            if (data[0] === undefined) {
-              console.error(`Geogratis failed to find coordinates for the following address: ${data[0]}`);
-            }
-            coordinateArray.push(data[0].geometry.coordinates);
-            console.log(`${coordinateArray.length}: ${data[0].geometry.coordinates}`)
-          }
-        };
-        request.open("GET", "https://www.geogratis.gc.ca/services/geolocation/en/locate?q=" + address, true);
-        request.send();
-      });
-      this.setState({ coordinates: coordinateArray });
-    } catch (err) {
-      console.log(err);
+    for (const address of addressArray) {
+      await fetch(`https://www.geogratis.gc.ca/services/geolocation/en/locate?q=${address}`)
+        .then(response => {
+          response.json()
+            .then(data => {
+              console.log(data[0].geometry.coordinates);
+              coordinateArray.push(data[0].geometry.coordinates);
+            });
+        })
+        .catch((err) => {
+          console.log(err);
+        })
     }
+    this.setState({ coordinates: coordinateArray })
+    // console.log(`Length of coordinateArray after getCoordinates async call: ${coordinateArray.length}`)
   }
 
-  createGeoJSON = (data) => {
-    console.log('inside create json');
-    console.log(data);
-    console.log(typeof test);
-    let geoJSON = {
-      "type": "FeatureCollection",
-      "features": [
-        {
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -125.5129,
-              63.1016,
-            ]
-          }
-        },
-      ]
-    }
-
-    data.forEach(() => {
-      console.log('a')
-    })
-
-    let geoJSON2 = {
-      "type": "FeatureCollection",
-      "features": [
-        {
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -125.5129,
-              63.1016,
-            ]
-          }
-        },
-        {
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -121.5129,
-              63.1224,
-            ]
-          }
-        },
-        {
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -121.5129,
-              63.1224,
-            ]
-          }
-        },
-        {
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -10.4048,
-              93.1224,
-            ]
-          }
+  createGeoJSON = async () => {
+    console.log("I'm createGeoJSON, & I come after getCoordinates");
+    let features = this.state.coordinates.map((coordinates) => {
+      return {
+        'type': 'Feature',
+        'gometry': {
+          'type': "Point",
+          'coordinates': [
+            coordinates[0],
+            coordinates[1]
+          ]
         }
-      ]
-    }
-    this.setState({ geoJSON: geoJSON2 });
-  }
-
-  componentWillMount(){
-    
+      }
+    });
+    this.setState({ geoJSONFeatures: features });
   }
 
   componentDidMount() {
-    const map = new mapboxgl.Map({
-      container: this.mapContainer,
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center: [this.state.lng, this.state.lat],
-      zoom: this.state.zoom
-    });
     (async () => {
-      await this.getCoordinates(createGeoJson)
-      let geoJSON = this.state.geoJSON;
-      console.log('awaited')
+      await this.getCoordinates();
+      await this.createGeoJSON();
+      let geoJSONFeatures = this.state.geoJSONFeatures;
+      console.log(geoJSONFeatures);
+      const map = new mapboxgl.Map({
+        container: this.mapContainer,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [this.state.lng, this.state.lat],
+        zoom: this.state.zoom
+      });
       map.on('load', function () {
         // Add a new source from our GeoJSON data and
         // set the 'cluster' option to true. GL-JS will
@@ -138,7 +80,24 @@ export default class Map extends React.Component {
           type: 'geojson',
           // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
           // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
-          data: geoJSON,
+          data:
+          {
+            "type": "FeatureCollection",
+            // "features": geoJSONFeatures,
+            'features': geoJSONFeatures,
+            // [
+            //   {
+            //     "type": "Feature",
+            //     "geometry": {
+            //       "type": "Point",
+            //       "coordinates": [-79.391194826999921, 43.69]
+            //     },
+            //     "properties": {
+            //       "name": "Dinagat Islands"
+            //     }
+            //   },
+            // ],
+          },
           cluster: true,
           clusterMaxZoom: 14, // Max zoom to cluster points on
           clusterRadius: 50 // Radius of each cluster when clustering points (defaults to 50)
@@ -167,11 +126,11 @@ export default class Map extends React.Component {
             'circle-radius': [
               'step',
               ['get', 'point_count'],
-              20,
+              10,
               100,
-              30,
+              20,
               750,
-              40
+              30
             ]
           }
         });
@@ -195,8 +154,8 @@ export default class Map extends React.Component {
           filter: ['!', ['has', 'point_count']],
           paint: {
             'circle-color': '#11b4da',
-            'circle-radius': 4,
-            'circle-stroke-width': 1,
+            'circle-radius': 20,
+            'circle-stroke-width': 5,
             'circle-stroke-color': '#fff'
           }
         });
